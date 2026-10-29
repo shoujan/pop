@@ -12,7 +12,6 @@ permissions:
 
 jobs:
   build:
-    name: Build Debug APK
     runs-on: ubuntu-latest
 
     steps:
@@ -28,17 +27,38 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Find Gradle wrapper
+        id: wrapper
+        shell: bash
+        run: |
+          echo "Repository root:"
+          pwd
+          echo "Files and directories:"
+          ls -la
+          echo "Searching for gradlew..."
+          find . -type f -name gradlew -print
+
+          if [ -f "./android_client/gradlew" ]; then
+            echo "working_dir=android_client" >> "$GITHUB_OUTPUT"
+          elif [ -f "./gradlew" ]; then
+            echo "working_dir=." >> "$GITHUB_OUTPUT"
+          else
+            echo "ERROR: gradlew was not found."
+            echo "Check that the Gradle wrapper is committed to GitHub."
+            exit 1
+          fi
+
       - name: Make Gradle wrapper executable
-        working-directory: android_client
+        working-directory: ${{ steps.wrapper.outputs.working_dir }}
         run: chmod +x gradlew
 
       - name: Build debug APK
-        working-directory: android_client
+        working-directory: ${{ steps.wrapper.outputs.working_dir }}
         run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v6
         with:
           name: Android-Debug-APK
-          path: android_client/app/build/outputs/apk/debug/*.apk
+          path: ${{ steps.wrapper.outputs.working_dir }}/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
